@@ -66,43 +66,56 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
 
     def initUI(self):
         # 创建主面板
-        self.panel = JPanel(BorderLayout())
+        self.panel = JPanel(BorderLayout(10, 10))
+        self.panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10))
         
-        # 创建北部面板
-        northPanel = JPanel()
-        northPanel.setLayout(BoxLayout(northPanel, BoxLayout.Y_AXIS))
-        northPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10))
-        
-        # 创建全局开关
+        # 创建启用插件的开关面板
+        switchPanel = JPanel(BorderLayout())
+        switchPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5))
         self.globalSwitch = JCheckBox(UI_TEXT['enable_plugin'])
         self.globalSwitch.addActionListener(self.togglePlugin)
-        northPanel.add(self.globalSwitch)
+        switchPanel.add(self.globalSwitch, BorderLayout.WEST)
+        
+        # 创建功能面板（初始隐藏）
+        self.functionPanel = JPanel(BorderLayout())
+        
+        # 创建北部控制面板
+        controlPanel = JPanel(BorderLayout(5, 5))
+        controlPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createTitledBorder(UI_TEXT['traffic_sources']),
+            BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ))
         
         # 创建复选框面板
         checkboxPanel = JPanel()
         checkboxPanel.setLayout(BoxLayout(checkboxPanel, BoxLayout.X_AXIS))
-        checkboxPanel.setBorder(BorderFactory.createTitledBorder(UI_TEXT['traffic_sources']))
         
         self.proxyCheckbox = JCheckBox(UI_TEXT['proxy_traffic'])
         self.extenderCheckbox = JCheckBox(UI_TEXT['extender_traffic'])
         self.repeaterCheckbox = JCheckBox(UI_TEXT['repeater_traffic'])
         self.scannerCheckbox = JCheckBox(UI_TEXT['scanner_traffic'])
         
+        # 添加复选框和间距
+        checkboxPanel.add(Box.createHorizontalStrut(5))
         checkboxPanel.add(self.proxyCheckbox)
+        checkboxPanel.add(Box.createHorizontalStrut(10))
         checkboxPanel.add(self.extenderCheckbox)
+        checkboxPanel.add(Box.createHorizontalStrut(10))
         checkboxPanel.add(self.repeaterCheckbox)
+        checkboxPanel.add(Box.createHorizontalStrut(10))
         checkboxPanel.add(self.scannerCheckbox)
-        northPanel.add(checkboxPanel)
+        checkboxPanel.add(Box.createHorizontalGlue())
+        
+        controlPanel.add(checkboxPanel, BorderLayout.CENTER)
         
         # 创建过滤器面板
-        filterPanel = JPanel(BorderLayout())
+        filterPanel = JPanel(BorderLayout(5, 0))
         filterPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0))
         filterLabel = JLabel(UI_TEXT['filter_label'])
         self.filterField = JTextField()
         self.filterField.getDocument().addDocumentListener(FilterListener(self))
         filterPanel.add(filterLabel, BorderLayout.WEST)
         filterPanel.add(self.filterField, BorderLayout.CENTER)
-        northPanel.add(filterPanel)
         
         # 创建表格
         self.tableModel = DefaultTableModel()
@@ -111,6 +124,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         self.infoTable = JTable(self.tableModel)
         self.sorter = TableRowSorter(self.tableModel)
         self.infoTable.setRowSorter(self.sorter)
+        self.infoTable.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
         
         # 设置表格滚动面板
         scrollPane = JScrollPane(self.infoTable)
@@ -119,18 +133,28 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         # 创建按钮面板
         buttonPanel = JPanel()
         buttonPanel.setLayout(BoxLayout(buttonPanel, BoxLayout.X_AXIS))
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10))
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0))
         
+        # 创建按钮并设置统一大小
+        buttonSize = Dimension(120, 25)
         self.copyIPsButton = JButton(UI_TEXT['copy_ips'])
         self.copyDomainsButton = JButton(UI_TEXT['copy_domains'])
         self.clearButton = JButton(UI_TEXT['clear_records'])
         self.exportButton = JButton(UI_TEXT['export_file'])
         
+        for button in [self.copyIPsButton, self.copyDomainsButton, self.clearButton, self.exportButton]:
+            button.setPreferredSize(buttonSize)
+            button.setMaximumSize(buttonSize)
+            button.setEnabled(False)  # 初始禁用所有按钮
+        
+        # 添加按钮事件
         self.copyIPsButton.addActionListener(self.copyIPsToClipboard)
         self.copyDomainsButton.addActionListener(self.copyDomainsToClipboard)
         self.clearButton.addActionListener(self.clearAllRecords)
         self.exportButton.addActionListener(self.exportToFile)
         
+        # 组装按钮面板
+        buttonPanel.add(Box.createHorizontalGlue())
         buttonPanel.add(self.copyIPsButton)
         buttonPanel.add(Box.createHorizontalStrut(10))
         buttonPanel.add(self.copyDomainsButton)
@@ -138,14 +162,27 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         buttonPanel.add(self.clearButton)
         buttonPanel.add(Box.createHorizontalStrut(10))
         buttonPanel.add(self.exportButton)
+        buttonPanel.add(Box.createHorizontalGlue())
         
         # 添加右键菜单
         self.infoTable.setComponentPopupMenu(self.createPopupMenu())
         
+        # 组装功能面板
+        northPanel = JPanel()
+        northPanel.setLayout(BoxLayout(northPanel, BoxLayout.Y_AXIS))
+        northPanel.add(controlPanel)
+        northPanel.add(filterPanel)
+        
+        self.functionPanel.add(northPanel, BorderLayout.NORTH)
+        self.functionPanel.add(scrollPane, BorderLayout.CENTER)
+        self.functionPanel.add(buttonPanel, BorderLayout.SOUTH)
+        
+        # 初始隐藏功能面板
+        self.functionPanel.setVisible(False)
+        
         # 组装主面板
-        self.panel.add(northPanel, BorderLayout.NORTH)
-        self.panel.add(scrollPane, BorderLayout.CENTER)
-        self.panel.add(buttonPanel, BorderLayout.SOUTH)
+        self.panel.add(switchPanel, BorderLayout.NORTH)
+        self.panel.add(self.functionPanel, BorderLayout.CENTER)
         
         # 初始化集合
         self.ipSet = set()
@@ -217,6 +254,13 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
     def togglePlugin(self, event):
         # 切换插件启用状态
         self.isPluginEnabled = self.globalSwitch.isSelected()
+        # 显示/隐藏功能面板
+        self.functionPanel.setVisible(self.isPluginEnabled)
+        # 启用/禁用按钮
+        self.copyIPsButton.setEnabled(self.isPluginEnabled)
+        self.copyDomainsButton.setEnabled(self.isPluginEnabled)
+        self.clearButton.setEnabled(self.isPluginEnabled)
+        self.exportButton.setEnabled(self.isPluginEnabled)
 
     def copyIPsToClipboard(self, event):
         # 复制所有IP到剪贴板
@@ -272,46 +316,75 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
 
     def extractAndAddInfo(self, message):
         try:
-            # 使用正则表达式提取IP地址
-            ips = re.findall(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', message)
-
-            # 使用正则表达式提取域名和子域名
-            domains = re.findall(r'\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}\b', message)
-
-            # 过滤掉可能的无效结果
-            valid_domains = []
-            for domain in domains:
-                if any(domain.endswith(suffix) for suffix in DOMAIN_SUFFIXES):
-                    valid_domains.append(domain)
-
-            valid_ips = [ip for ip in ips if re.match(r'^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$', ip)]
-
-            # 添加到表格
-            if self.current_entries < self.MAX_ENTRIES:
-                self.addIPs(valid_ips)
-                self.addDomains(valid_domains)
-            else:
-                self._callbacks.issueAlert(UI_TEXT['max_entries_alert'])
-                
-            # 检查是否需要清理
-            self.checkCleanup()
+            # 预编译正则表达式，提高匹配效率
+            IP_PATTERN = re.compile(r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b')
+            DOMAIN_PATTERN = re.compile(r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}\b')
             
+            # 使用更精确的IP地址正则表达式，减少后续验证
+            ips = IP_PATTERN.findall(message)
+            domains = DOMAIN_PATTERN.findall(message)
+
+            # 批量处理数据
+            batch_size = 50
+            new_ips = []
+            new_domains = []
+
+            # 过滤IP（排除内部IP）
+            for ip in ips:
+                if self.current_entries >= self.MAX_ENTRIES:
+                    break
+                if ip not in self.ipSet and not self._is_internal_ip(ip):
+                    new_ips.append(ip)
+                    self.ipSet.add(ip)
+                    self.current_entries += 1
+
+            # 过滤域名
+            for domain in domains:
+                if self.current_entries >= self.MAX_ENTRIES:
+                    break
+                if domain not in self.domainSet and any(domain.endswith(suffix) for suffix in DOMAIN_SUFFIXES):
+                    new_domains.append(domain)
+                    self.domainSet.add(domain)
+                    self.current_entries += 1
+
+            # 批量更新UI
+            if new_ips or new_domains:
+                def updateUI():
+                    # 批量添加IP
+                    for i in range(0, len(new_ips), batch_size):
+                        batch = new_ips[i:i + batch_size]
+                        for ip in batch:
+                            self.tableModel.addRow([ip, ""])
+                    
+                    # 批量添加域名
+                    for i in range(0, len(new_domains), batch_size):
+                        batch = new_domains[i:i + batch_size]
+                        for domain in batch:
+                            self.tableModel.addRow(["", domain])
+                
+                SwingUtilities.invokeLater(updateUI)
+
+            # 检查是否需要清理
+            if self.current_entries >= self.MAX_ENTRIES:
+                self._callbacks.issueAlert(UI_TEXT['max_entries_alert'])
+            else:
+                self.checkCleanup()
+                
         except Exception as e:
             self._callbacks.issueAlert(UI_TEXT['extract_error'] + str(e))
 
-    def addIPs(self, ips):
-        # 添加IP到表格中，并进行去重
-        for ip in ips:
-            if ip not in self.ipSet:
-                self.ipSet.add(ip)
-                SwingUtilities.invokeLater(lambda ip=ip: self.tableModel.addRow([ip, ""]))
-
-    def addDomains(self, domains):
-        # 添加域名到表格中，并进行去重
-        for domain in domains:
-            if domain not in self.domainSet:
-                self.domainSet.add(domain)
-                SwingUtilities.invokeLater(lambda domain=domain: self.tableModel.addRow(["", domain]))
+    def _is_internal_ip(self, ip):
+        # 快速检查内部IP
+        try:
+            parts = [int(p) for p in ip.split('.')]
+            return (
+                parts[0] == 10 or
+                (parts[0] == 172 and 16 <= parts[1] <= 31) or
+                (parts[0] == 192 and parts[1] == 168) or
+                parts[0] == 127
+            )
+        except (ValueError, IndexError):
+            return False
 
 class FilterListener(DocumentListener):
     def __init__(self, extender):
