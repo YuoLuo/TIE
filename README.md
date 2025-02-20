@@ -77,4 +77,4 @@ Target Information Extractor (TIE) 是一个 Burp Suite 插件，用于自动提
 - 修改了布局
 - 优化了部分性能
 - 将默认语言修改为中文
-- 增加右键导出功能
+- 增加导出功能
